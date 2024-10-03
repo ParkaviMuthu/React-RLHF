@@ -1,147 +1,127 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-const App = () => {
-  const [carbonFootprint, setCarbonFootprint] = useState({ transport: 0, energy: 0, food: 0, waste: 0 });
-  const [total, setTotal] = useState(0);
-  const [goal, setGoal] = useState(10);
-  const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('carbonHistory')) || []);
-
-  useEffect(() => {
-    const sum = Object.values(carbonFootprint).reduce((a, b) => a + b, 0);
-    setTotal(sum);
-    const progress = Math.min((sum / goal) * 100, 100);
-    // Simulate saving to localStorage
-    localStorage.setItem('carbonHistory', JSON.stringify([...history, { date: new Date().toISOString().split('T')[0], total: sum }]));
-  }, [carbonFootprint, goal]);
-
-  const handleSliderChange = (category, value) => {
-    setCarbonFootprint(prev => ({ ...prev, [category]: value }));
-  };
-
-  const treeProgress = () => {
-    const progress = (total / goal) * 100;
-    if (progress < 25) return '🌱';
-    if (progress < 50) return '🌿';
-    if (progress < 75) return '🌳';
-    return '🌲';
-  };
-
-  const downloadHistory = () => {
-    const element = document.createElement('a');
-    const file = new Blob([JSON.stringify(history, null, 2)], {type: 'text/json'});
-    element.href = URL.createObjectURL(file);
-    element.download = "carbon_footprint_history.json";
-    document.body.appendChild(element); // Required for this to work in FireFox
-    element.click();
-  };
-
-  return (
-    <div className="p-4 space-y-4">
-      <TitleCard />
-      <CarbonCategoryCard onChange={handleSliderChange} values={carbonFootprint} />
-      <TotalFootprintCard total={total} />
-      <GoalSettingCard goal={goal} setGoal={setGoal} progress={(total / goal) * 100} />
-      <SuggestionsList />
-      <TreeGrowth tree={treeProgress()} />
-      <HistoryList history={history} onDownload={downloadHistory} />
-    </div>
-  );
-};
-
-const TitleCard = () => (
-  <Card className="text-center">
-    <CardHeader>
-      <CardTitle className="text-2xl font-bold">Personal Carbon Footprint Tracker</CardTitle>
-    </CardHeader>
-  </Card>
-);
-
-const CarbonCategoryCard = ({ onChange, values }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>Adjust Your Daily Emissions</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-2">
-      {['transport', 'energy', 'food', 'waste'].map(category => (
-        <CarbonSlider 
-          key={category} 
-          label={category} 
-          value={values[category]} 
-          onChange={(value) => onChange(category, value)} 
-        />
-      ))}
-    </CardContent>
-  </Card>
-);
-
-const CarbonSlider = ({ label, value, onChange }) => (
-  <div className="flex items-center justify-between">
-    <label>{label.charAt(0).toUpperCase() + label.slice(1)}:</label>
-    <Slider value={[value]} onValueChange={onChange} max={10} className="w-3/4" />
-    <span>{value} kg CO2</span>
+const CarbonCategory = ({ name, value, onChange }) => (
+  <div className="mb-4">
+    <label className="block text-sm font-medium mb-2">{name}</label>
+    <Slider value={[value]} onValueChange={onChange} max={10} className="w-full" />
+    <span className="text-right block mt-2 text-sm">{value} kg CO2</span>
   </div>
 );
 
-const TotalFootprintCard = ({ total }) => (
-  <Card>
-    <CardContent>
-      <p className="text-xl font-semibold">Total Daily Carbon Footprint: <span className="text-2xl">{total.toFixed(2)} kg CO2</span></p>
-    </CardContent>
-  </Card>
-);
+export default function App() {
+  const [categories, setCategories] = useState({
+    transport: 0,
+    energy: 0,
+    food: 0,
+    waste: 0
+  });
+  const [total, setTotal] = useState(0);
+  const [goal, setGoal] = useState(20); // Default goal in kg CO2
+  const [history, setHistory] = useState([]);
 
-const GoalSettingCard = ({ goal, setGoal, progress }) => (
-  <Card>
-    <CardContent>
-      <Input 
-        type="number" 
-        value={goal} 
-        onChange={(e) => setGoal(Number(e.target.value))} 
-        placeholder="Set daily goal (kg CO2)"
-      />
-      <Progress value={progress} className="mt-4" />
-    </CardContent>
-  </Card>
-);
+  useEffect(() => {
+    const sum = Object.values(categories).reduce((a, b) => a + b, 0);
+    setTotal(sum);
+  }, [categories]);
 
-const SuggestionsList = () => (
-  <Card>
-    <CardHeader>
-      <CardTitle>Reduce Your Footprint</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <ul className="list-disc pl-5 space-y-2">
-        <li>🚲 Use public transport - Reduce by 2 kg CO2</li>
-        <li>🥦 Eat plant-based meals - Reduce by 1.5 kg CO2</li>
-        <li>♻️ Recycle more - Reduce by 0.5 kg CO2</li>
-      </ul>
-    </CardContent>
-  </Card>
-);
+  const handleSliderChange = (category, value) => {
+    setCategories(prev => ({ ...prev, [category]: value[0] }));
+  };
 
-const TreeGrowth = ({ tree }) => (
-  <div className="text-center text-4xl">{tree}</div>
-);
+  const progress = Math.min((total / goal) * 100, 100);
 
-const HistoryList = ({ history, onDownload }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>Your Carbon Footprint History</CardTitle>
-      <Button onClick={onDownload}>Download History</Button>
-    </CardHeader>
-    <CardContent>
-      <ul>
-        {history.slice(-5).map((entry, idx) => (
-          <li key={idx}>{entry.date}: {entry.total.toFixed(2)} kg CO2</li>
-        ))}
-      </ul>
-    </CardContent>
-  </Card>
-);
+  const updateHistory = () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (!history.some(entry => entry.date === today)) {
+      setHistory(prev => [...prev, { date: today, total: total }]);
+    }
+  };
 
-export default App;
+  const downloadHistory = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(history));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "carbon_footprint_history.json");
+    document.body.appendChild(downloadAnchorNode); 
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  useEffect(updateHistory, [total]);
+
+  return (
+    <div className="container mx-auto p-4 sm:px-6 lg:px-8">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Personal Carbon Footprint Tracker</CardTitle>
+        </CardHeader>
+      </Card>
+
+      <Card className="mb-6">
+        <CardContent>
+          {Object.keys(categories).map(category => (
+            <CarbonCategory 
+              key={category} 
+              name={category.charAt(0).toUpperCase() + category.slice(1)} 
+              value={categories[category]} 
+              onChange={(value) => handleSliderChange(category, value)}
+            />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardContent>
+          <h2 className="text-xl font-bold">Total Daily Footprint:</h2>
+          <p className="text-3xl font-bold">{total} kg CO2</p>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardContent>
+          <Progress value={progress} className="mb-4" />
+          <p>{progress.toFixed(2)}% of your daily goal</p>
+          <Input 
+            type="number" 
+            value={goal} 
+            onChange={(e) => setGoal(Number(e.target.value))} 
+            placeholder="Set daily goal (kg CO2)"
+            className="mt-2"
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h3 className="text-lg font-semibold mb-2">Reduce Your Footprint:</h3>
+          <ul>
+            <li>🚆 Use public transport: -2 kg CO2</li>
+            <li>🥗 Eat plant-based: -1.5 kg CO2</li>
+            <li>♻️ Reduce waste: -0.5 kg CO2</li>
+          </ul>
+        </CardContent>
+      </Card>
+
+      <div className="my-4 text-center">
+        {progress < 25 ? '🌱' : progress < 50 ? '🌿' : progress < 75 ? '🌳' : '🌲🌲🌲'}
+      </div>
+
+      <Card className="mt-6">
+        <CardContent>
+          <h3 className="text-lg font-semibold mb-2">History</h3>
+          <ul>
+            {history.slice(-5).map(entry => (
+              <li key={entry.date}>{entry.date}: {entry.total} kg CO2</li>
+            ))}
+          </ul>
+          <Button onClick={downloadHistory}>Download History</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
