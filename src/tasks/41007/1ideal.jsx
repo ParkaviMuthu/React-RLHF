@@ -200,16 +200,15 @@ export default function App() {
           <p className="text-red-500 text-center mb-4">{errorMessage}</p>
         )}
 
-        <CardFooter className="flex flex-col items-center">
-          <Button
-            onClick={calculatePayment}
-            className="w-full bg-purple-700 hover:bg-purple-800"
-            disabled={isCalculateDisabled}
-          >
-            Calculate Monthly Payment
-          </Button>
-
-          {monthlyPayment && (
+<CardFooter className="flex flex-col items-center">
+  <Button
+    onClick={calculatePayment}
+    className="w-full px-4 sm:px-6 md:px-8 bg-purple-700 hover:bg-purple-800"
+    disabled={isCalculateDisabled}
+  >
+    Calculate Monthly Payment
+  </Button>
+   {monthlyPayment && (
             <p className="mt-4 text-yellow-300">
               Your monthly payment is:{" "}
               <strong>{formatCurrency(parseFloat(monthlyPayment))}</strong>

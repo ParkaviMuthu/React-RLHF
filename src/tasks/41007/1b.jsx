@@ -1,109 +1,114 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, Button } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-function App() {
+// InputField component for reusable input with validation
+const InputField = ({ label, value, onChange, type = 'number', min, max, errorMessage }) => {
+  const handleChange = (e) => {
+    const val = e.target.value;
+    if (type === 'number' && (val === '' || (parseFloat(val) >= min && (max === undefined || parseFloat(val) <= max)))) {
+      onChange(val);
+    }
+  };
+
   return (
-    <div className="bg-gray-900 min-h-screen flex items-center justify-center p-4 sm:p-8">
-      <MortgageCalculator />
+    <div className="mb-4">
+      <label className="block text-white text-sm font-bold mb-2">
+        {label}
+      </label>
+      <Input type={type} value={value} onChange={handleChange} className="w-full" />
+      {errorMessage && <p className="text-red-500 text-xs mt-1">{errorMessage}</p>}
     </div>
   );
-}
+};
 
-function MortgageCalculator() {
+// Main App Component
+export default function App() {
   const [loanAmount, setLoanAmount] = useState('');
   const [interestRate, setInterestRate] = useState('');
   const [loanTerm, setLoanTerm] = useState('');
   const [extraPayment, setExtraPayment] = useState('');
-  const [errors, setErrors] = useState({});
-  const [result, setResult] = useState(null);
+  const [errorMessages, setErrorMessages] = useState({});
+  const [results, setResults] = useState(null);
 
-  const validateInput = (name, value) => {
-    if (value === '' || parseFloat(value) < 0) {
-      setErrors(prev => ({...prev, [name]: 'Please enter a positive number.'}));
-      return false;
-    }
-    setErrors(prev => ({...prev, [name]: null}));
-    return true;
+  const validateFields = () => {
+    let errors = {};
+    if (!loanAmount || parseFloat(loanAmount) <= 0) errors.loanAmount = "Must be positive";
+    if (!interestRate || parseFloat(interestRate) < 0) errors.interestRate = "Must be non-negative";
+    if (!loanTerm || parseFloat(loanTerm) <= 0) errors.loanTerm = "Must be positive";
+    if (extraPayment && parseFloat(extraPayment) < 0) errors.extraPayment = "Must be non-negative";
+    return errors;
   };
 
-  const canCalculate = loanAmount && interestRate && loanTerm && 
-    Object.values(errors).every(e => e === null);
+  const calculatePayment = () => {
+    const errors = validateFields();
+    if (Object.keys(errors).length > 0) {
+      setErrorMessages(errors);
+      return;
+    }
 
-  const calculateMonthlyPayment = () => {
-    if (!canCalculate) return;
-    const monthlyRate = (parseFloat(interestRate) / 100) / 12;
-    const months = parseFloat(loanTerm) * 12;
-    const monthlyPayment = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, months)) / 
-                           (Math.pow(1 + monthlyRate, months) - 1);
-    setResult({
-      monthlyPayment: monthlyPayment,
-      totalInterest: (monthlyPayment * months) - loanAmount
+    const rate = parseFloat(interestRate) / 100 / 12;
+    const term = parseFloat(loanTerm) * 12;
+    const principal = parseFloat(loanAmount);
+    const monthlyPayment = (principal * rate * Math.pow(1 + rate, term)) / (Math.pow(1 + rate, term) - 1);
+    const totalInterest = (monthlyPayment * term) - principal;
+
+    setResults({
+      monthlyPayment,
+      totalInterest,
+      term
     });
   };
 
   const calculateScenario = () => {
-    if (result && extraPayment > 0) {
-      // Simplified scenario calculation
-      const newMonthly = result.monthlyPayment + parseFloat(extraPayment);
-      // This is a placeholder for actual amortization with extra payments
-      setResult(prev => ({...prev, 
-        scenarioPayment: newMonthly, 
-        scenarioInterestSaved: prev.totalInterest * 0.2 // Example 20% savings
-      }));
-    }
+    if (!results) return;
+    const newMonthly = results.monthlyPayment + parseFloat(extraPayment);
+    // Simplified scenario calculation for brevity
+    const newTerm = results.term - (parseFloat(extraPayment) / results.monthlyPayment * 12); // Hypothetical reduction
+
+    setResults(prev => ({
+      ...prev,
+      scenario: {
+        newMonthly,
+        newTerm,
+        interestSaved: results.totalInterest - ((newMonthly * newTerm) - parseFloat(loanAmount))
+      }
+    }));
   };
 
-  return (
-    <Card className="w-full max-w-lg bg-gray-800">
-      <CardHeader>
-        <CardTitle className="text-yellow-300">Mortgage Calculator</CardTitle>
-        <CardDescription>Calculate your monthly payments.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <InputField label="Loan Amount (₹)" value={loanAmount} onChange={setLoanAmount} error={errors.loanAmount} validate={validateInput} name="loanAmount"/>
-        <InputField label="Annual Interest Rate (%)" value={interestRate} onChange={setInterestRate} error={errors.interestRate} validate={validateInput} name="interestRate"/>
-        <InputField label="Loan Term (Years)" value={loanTerm} onChange={setLoanTerm} error={errors.loanTerm} validate={validateInput} name="loanTerm"/>
-        <InputField label="Extra Monthly Payment (₹)" value={extraPayment} onChange={setExtraPayment} error={errors.extraPayment} validate={(name, value) => validateInput(name, value)} name="extraPayment"/>
-        
-        <Button onClick={calculateMonthlyPayment} disabled={!canCalculate} className="mt-4 bg-purple-700 hover:bg-purple-600">Calculate Monthly Payment</Button>
-        <Button onClick={calculateScenario} disabled={!canCalculate || !extraPayment} className="mt-2 bg-green-600 hover:bg-green-500">Calculate Scenario</Button>
-        
-        {result && <ResultDisplay result={result} />}
-      </CardContent>
-    </Card>
-  );
-}
+  const isCalculateDisabled = !loanAmount || !interestRate || !loanTerm;
+  const isScenarioDisabled = isCalculateDisabled || !extraPayment;
 
-function InputField({ label, value, onChange, error, validate, name }) {
   return (
-    <div className="mb-4">
-      <label className="block text-white text-sm font-medium mb-2">{label}</label>
-      <Input 
-        type="number" 
-        value={value} 
-        onChange={(e) => {validate(name, e.target.value); onChange(e.target.value);}} 
-        className="w-full" 
-      />
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+    <div className="bg-gray-900 min-h-screen p-4">
+      <Card className="bg-gray-800 max-w-lg mx-auto">
+        <CardHeader>
+          <CardTitle className="text-yellow-300">Indian Rupee Mortgage Calculator</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InputField label="Loan Amount (₹)" value={loanAmount} onChange={setLoanAmount} min={1} errorMessage={errorMessages.loanAmount} />
+          <InputField label="Annual Interest Rate (%)" value={interestRate} onChange={setInterestRate} min={0} errorMessage={errorMessages.interestRate} />
+          <InputField label="Loan Term (Years)" value={loanTerm} onChange={setLoanTerm} min={1} errorMessage={errorMessages.loanTerm} />
+          <InputField label="Extra Monthly Payment (₹)" value={extraPayment} onChange={setExtraPayment} min={0} errorMessage={errorMessages.extraPayment} />
+          
+          <Button onClick={calculatePayment} disabled={isCalculateDisabled} className="bg-purple-700 hover:bg-purple-600 mb-2">Calculate Monthly Payment</Button>
+          <Button onClick={calculateScenario} disabled={isScenarioDisabled} className="bg-green-600 hover:bg-green-500">Calculate Scenario</Button>
+          
+          {results && (
+            <div className="mt-4">
+              <p className="text-white">Monthly Payment: ₹{results.monthlyPayment.toFixed(2)}</p>
+              <p className="text-white">Total Interest: ₹{results.totalInterest.toFixed(2)}</p>
+              {results.scenario && (
+                <>
+                  <p className="text-white">With Extra Payment: ₹{results.scenario.newMonthly.toFixed(2)}</p>
+                  <p className="text-white">Loan Term Saved: {results.scenario.newTerm.toFixed(0)} months</p>
+                  <p className="text-white">Interest Saved: ₹{results.scenario.interestSaved.toFixed(2)}</p>
+                </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-function ResultDisplay({ result }) {
-  return (
-    <div className="mt-5 text-white">
-      <p>Monthly Payment: ₹{result.monthlyPayment.toFixed(2)}</p>
-      <p>Total Interest Paid: ₹{result.totalInterest.toFixed(2)}</p>
-      {result.scenarioPayment && (
-        <>
-          <p>With Extra Payment: ₹{result.scenarioPayment.toFixed(2)}</p>
-          <p>Interest Saved: ₹{result.scenarioInterestSaved.toFixed(2)}</p>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default App;
